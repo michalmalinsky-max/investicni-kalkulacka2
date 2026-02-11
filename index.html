@@ -86,3 +86,243 @@
             border: 1px solid #334155;
             height: fit-content;
         }
+
+        .chart-container {
+            background: var(--card);
+            padding: 25px;
+            border-radius: 20px;
+            border: 1px solid #334155;
+            min-height: 400px;
+        }
+
+        /* Ovládací prvky */
+        .input-group { margin-bottom: 20px; }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .label-row label { font-size: 0.9rem; font-weight: 500; }
+        .label-row .val-tag { font-family: monospace; color: var(--primary); font-weight: bold; }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        input[type="number"], select {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid #475569;
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: white;
+            box-sizing: border-box;
+        }
+
+        .disclaimer {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Compound Interest Pro</h1>
+
+    <div class="results-header">
+        <div class="res-card highlight">
+            <label>💰 Odhadovaná budoucí hodnota</label>
+            <span id="resNominal">0 Kč</span>
+        </div>
+        <div class="res-card">
+            <label>📉 Reálná hodnota (dnes)</label>
+            <span id="resReal">0 Kč</span>
+        </div>
+        <div class="res-card">
+            <label>🏦 Celkem vložený kapitál</label>
+            <span id="resInvested">0 Kč</span>
+        </div>
+    </div>
+
+    <div class="main-layout">
+        <div class="sidebar">
+            <div class="input-group">
+                <div class="label-row">
+                    <label>Počáteční investice</label>
+                    <span class="val-tag" id="val-initial">50 000 Kč</span>
+                </div>
+                <input type="range" id="initial" min="0" max="1000000" step="10000" value="50000" oninput="updateUI()">
+            </div>
+
+            <div class="input-group">
+                <div class="label-row">
+                    <label>Měsíční příspěvek</label>
+                    <span class="val-tag" id="val-monthly">2 000 Kč</span>
+                </div>
+                <input type="range" id="monthly" min="0" max="50000" step="500" value="2000" oninput="updateUI()">
+            </div>
+
+            <div class="input-group">
+                <div class="label-row">
+                    <label>Doba investování</label>
+                    <span class="val-tag" id="val-years">20 let</span>
+                </div>
+                <input type="range" id="years" min="1" max="50" step="1" value="20" oninput="updateUI()">
+            </div>
+
+            <div class="input-group">
+                <div class="label-row">
+                    <label>Roční zhodnocení</label>
+                    <span class="val-tag" id="val-return">7 %</span>
+                </div>
+                <input type="range" id="return" min="1" max="15" step="0.5" value="7" oninput="updateUI()">
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid #334155; margin: 20px 0;">
+
+            <div class="input-group">
+                <label style="font-size: 0.8rem; color: var(--text-muted);">Průměrná inflace (%)</label>
+                <input type="number" id="inflation" value="3" step="0.1" oninput="calculate()">
+            </div>
+
+            <div class="input-group">
+                <label style="font-size: 0.8rem; color: var(--text-muted);">Frekvence úročení</label>
+                <select id="frequency" onchange="calculate()">
+                    <option value="12">Měsíčně</option>
+                    <option value="4">Kvartálně</option>
+                    <option value="1" selected>Ročně</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="myChart"></canvas>
+            <p class="disclaimer">Simulace je pouze orientační. Historické výnosy nezaručují budoucí zisky.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+let myChart;
+
+function updateUI() {
+    // Aktualizace textových hodnot u sliderů
+    document.getElementById('val-initial').innerText = parseInt(document.getElementById('initial').value).toLocaleString() + " Kč";
+    document.getElementById('val-monthly').innerText = parseInt(document.getElementById('monthly').value).toLocaleString() + " Kč";
+    document.getElementById('val-years').innerText = document.getElementById('years').value + " let";
+    document.getElementById('val-return').innerText = document.getElementById('return').value + " %";
+    
+    calculate();
+}
+
+function calculate() {
+    const initial = parseFloat(document.getElementById('initial').value);
+    const monthly = parseFloat(document.getElementById('monthly').value);
+    const years = parseInt(document.getElementById('years').value);
+    const annualReturn = parseFloat(document.getElementById('return').value) / 100;
+    const inflation = parseFloat(document.getElementById('inflation').value) / 100;
+    const frequency = parseInt(document.getElementById('frequency').value);
+
+    let totalNominal = initial;
+    let totalInvested = initial;
+    
+    let dataNominal = [initial];
+    let dataReal = [initial];
+    let dataInvested = [initial];
+    let labels = ["Start"];
+
+    for (let y = 1; y <= years; y++) {
+        for (let m = 1; m <= 12; m++) {
+            totalNominal += monthly;
+            totalInvested += monthly;
+            
+            if (m % (12 / frequency) === 0) {
+                totalNominal *= (1 + annualReturn / frequency);
+            }
+        }
+        
+        let totalReal = totalNominal / Math.pow(1 + inflation, y);
+
+        labels.push("Rok " + y);
+        dataNominal.push(Math.round(totalNominal));
+        dataReal.push(Math.round(totalReal));
+        dataInvested.push(Math.round(totalInvested));
+    }
+
+    // Výsledky v kartách
+    document.getElementById('resNominal').innerText = Math.round(totalNominal).toLocaleString() + " Kč";
+    document.getElementById('resReal').innerText = Math.round(totalReal).toLocaleString() + " Kč";
+    document.getElementById('resInvested').innerText = Math.round(totalInvested).toLocaleString() + " Kč";
+
+    updateChart(labels, dataNominal, dataReal, dataInvested);
+}
+
+function updateChart(labels, nominal, real, invested) {
+    const ctx = document.getElementById('myChart').getContext('2d');
+    
+    if (myChart) myChart.destroy();
+    
+    // Gradient pro nominální hodnotu
+    const grad = ctx.createLinearGradient(0, 0, 0, 400);
+    grad.addColorStop(0, 'rgba(59, 130, 246, 0.2)');
+    grad.addColorStop(1, 'rgba(59, 130, 246, 0)');
+
+    myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Nominální hodnota',
+                    data: nominal,
+                    borderColor: '#3b82f6',
+                    backgroundColor: grad,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    borderWidth: 3
+                },
+                {
+                    label: 'Reálná hodnota (po inflaci)',
+                    data: real,
+                    borderColor: '#ef4444',
+                    borderDash: [5, 5],
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 0
+                },
+                {
+                    label: 'Vložený kapitál',
+                    data: invested,
+                    borderColor: '#94a3b8',
+                    fill: false,
+                    tension: 0.1,
+                    pointRadius: 0,
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 20 } }
+            },
+            scales: {
+                y: { 
+                    grid: { color: '#334155' },
+                    ticks: { color: '#94a3b8', callback: value => value.toLocaleString() + ' Kč' }
+                },
+                x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+            }
+        }
+    });
+}
+
+// Inicializace
+updateUI();
+</script>
+
+</body>
+</html>
